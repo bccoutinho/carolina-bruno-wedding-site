@@ -88,6 +88,19 @@
         guests_confirmed:confirmed,awaited:pending.reduce((a,p)=>a+(+p.party||0),0),coming,declined,pending};
     }
     function errBox(m){ document.getElementById("app").innerHTML=`<div class="gate"><h1>RSVP Control</h1><p class="err">${m}</p></div>`; }
+
+    // raw reply records (for CSV download) + CSV builder
+    let RAW = [];
+    const CSV_FIELDS = ["submitted_at","id","token","household","attending","attendee_count",
+      "attendees","attendees_json","accommodation","game","game_json","message"];
+    function csvCell(v){ v=String(v==null?"":v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+    function downloadCSV(){
+      const rows=[CSV_FIELDS.join(",")].concat(RAW.map(r=>CSV_FIELDS.map(f=>csvCell(r[f])).join(",")));
+      const blob=new Blob([rows.join("\n")],{type:"text/csv;charset=utf-8"});
+      const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+      a.download="rsvps.csv"; document.body.appendChild(a); a.click(); a.remove();
+    }
+    window.downloadCSV = downloadCSV;
     const ROOM = {both:"both nights",night19:"the 19th only",none:"all sorted","":"—"};
     const el = (h) => { const d=document.createElement("div"); d.innerHTML=h; return d.firstElementChild; };
     const esc = (s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -133,6 +146,7 @@
           ${d.open
             ? `<button onclick="toggle(false)">Close RSVPs</button>`
             : `<button onclick="toggle(true)">Reopen RSVPs</button>`}
+          <button class="ghost" onclick="downloadCSV()">⬇ CSV</button>
           <button class="ghost" onclick="load()">Refresh</button>
         </div>
         <div class="tiles">
@@ -161,11 +175,13 @@
           const res = await fetch(`/admin-data?admin=${encodeURIComponent(KEY)}`,{cache:"no-store"});
           if(res.status===403) return gate("Wrong key.");
           d = await res.json();
+          RAW = d.replies || [];
         } else {
           if(!EXEC) return errBox("Backend not connected yet — deploy Apps Script and set EXEC.");
           const roster = await (await fetch("data/roster.json",{cache:"no-store"})).json();
           const resp = await jsonp({admin:KEY, all:1});
           if(!resp || resp.replies===undefined) return gate("Wrong key.");
+          RAW = resp.replies || [];
           d = computeDashboard(roster, resp.replies, resp.open);
         }
         render(d);
