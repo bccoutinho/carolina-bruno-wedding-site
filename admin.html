@@ -54,7 +54,7 @@
 
   <script>
     const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
-    const EXEC = "";  // <-- production Apps Script /exec URL (same as app.js EXEC)
+    const EXEC = "https://script.google.com/macros/s/AKfycbx91TBWRt5X7t2GPPvAJP9aR-RaUfJI3Jns3XESoxtd7d5J3rbWdgxrwqeIo0Qo8kSYUg/exec";
     const KEY = new URLSearchParams(location.search).get("admin") || "";
     function jsonp(params){
       return new Promise((resolve,reject)=>{

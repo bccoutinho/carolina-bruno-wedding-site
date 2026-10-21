@@ -15,7 +15,7 @@
 // the Apps Script web app and read back via JSONP (browsers block cross-origin GET
 // reads of Apps Script). Paste the deployed /exec URL into EXEC below.
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const EXEC = "";   // <-- production Apps Script /exec URL (see apps-script/README.md)
+const EXEC = "https://script.google.com/macros/s/AKfycbx91TBWRt5X7t2GPPvAJP9aR-RaUfJI3Jns3XESoxtd7d5J3rbWdgxrwqeIo0Qo8kSYUg/exec";
 const ENDPOINT = LOCAL ? "/rsvp" : EXEC;   // where RSVP POSTs go
 
 // JSONP GET to Apps Script (bypasses CORS); resolves the returned JSON.
