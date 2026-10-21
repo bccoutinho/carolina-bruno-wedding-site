@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>RSVP Control — Carolina &amp; Bruno</title>
+  <style>
+    :root{--ivory:#fdfcf6;--ink:#1f1d1a;--soft:#46423b;--grey:#857f75;--gold:#997a40;
+      --gold-soft:#c7b07a;--line:#e6ddc8;--green:#3a7d44;--red:#9a3b3b;
+      --serif:Georgia,"Times New Roman",serif;--sans:"Helvetica Neue",Arial,sans-serif;}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--ivory);color:var(--ink);font-family:var(--sans);line-height:1.5;padding:28px 18px 60px}
+    .wrap{max-width:860px;margin:0 auto}
+    h1{font-family:var(--serif);font-weight:500;font-size:28px;margin:0 0 4px}
+    .muted{color:var(--grey);font-size:13px}
+    .bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:18px 0 24px;
+      padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:8px}
+    .pill{font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;border-radius:999px}
+    .pill.open{background:#e7f1e9;color:var(--green)}
+    .pill.closed{background:#f6e7e7;color:var(--red)}
+    button{font-family:var(--sans);font-size:13px;letter-spacing:.04em;border-radius:6px;padding:9px 16px;
+      cursor:pointer;border:1px solid var(--gold);background:var(--gold);color:#fff}
+    button.ghost{background:none;color:var(--gold)}
+    button:disabled{opacity:.45;cursor:default}
+    .spacer{flex:1}
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:26px}
+    .tile{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+    .tile .n{font-family:var(--serif);font-size:30px;line-height:1}
+    .tile .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);margin-top:6px}
+    .tile.big .n{color:var(--green)}
+    h2{font-family:var(--serif);font-weight:500;font-size:19px;margin:26px 0 10px;
+      border-bottom:1px solid var(--line);padding-bottom:6px}
+    h2 .c{color:var(--grey);font-size:14px;font-family:var(--sans)}
+    .fam{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 15px;margin-bottom:9px}
+    .fam .hd{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+    .fam .name{font-family:var(--serif);font-size:17px}
+    .fam .room{font-size:12px;color:var(--grey)}
+    .fam ul{margin:8px 0 0;padding-left:18px}
+    .fam li{font-size:14px;color:var(--soft);margin:2px 0}
+    .fam li .g{color:var(--grey);font-size:12.5px}
+    .fam .msg{margin-top:7px;color:var(--gold);font-style:italic;font-size:14px}
+    .chips{display:flex;flex-wrap:wrap;gap:7px}
+    .chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px}
+    .chip .p{color:var(--grey)}
+    .gate{max-width:360px;margin:60px auto;text-align:center}
+    .gate input{width:100%;padding:11px;border:1px solid var(--line);border-radius:6px;font-size:15px;margin:10px 0}
+    .err{color:var(--red);font-size:13px}
+    .dim{color:var(--grey)}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><p class="muted">Loading…</p></div>
+
+  <script>
+    const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
+    const API = LOCAL ? "" : "";  // TODO: Apps Script /exec base for production
+    const KEY = new URLSearchParams(location.search).get("admin") || "";
+    const ROOM = {both:"both nights",night19:"the 19th only",none:"all sorted","":"—"};
+    const el = (h) => { const d=document.createElement("div"); d.innerHTML=h; return d.firstElementChild; };
+    const esc = (s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+    function gate(msg){
+      document.getElementById("app").innerHTML =
+        `<div class="gate"><h1>RSVP Control</h1>
+         ${msg?`<p class="err">${msg}</p>`:""}
+         <p class="muted">Enter the admin key</p>
+         <input id="k" type="password" placeholder="admin key" autofocus>
+         <button onclick="go()">Open control</button></div>`;
+    }
+    window.go = () => { const k=document.getElementById("k").value.trim();
+      if(k) location.search = "?admin="+encodeURIComponent(k); };
+
+    async function toggle(open){
+      await fetch(`${API}/control?admin=${encodeURIComponent(KEY)}&open=${open?1:0}`,{cache:"no-store"});
+      load();
+    }
+    window.toggle = toggle;
+
+    function render(d){
+      const app = document.getElementById("app");
+      const coming = d.coming.map(f=>`
+        <div class="fam"><div class="hd">
+          <span class="name">${esc(f.name)} <span class="dim">· ${f.count} coming</span></span>
+          <span class="room">room: ${ROOM[f.room]||esc(f.room)||"—"}</span></div>
+          <ul>${f.people.map(p=>p.coming
+            ? `<li>${esc(p.name)} <span class="g">— ${esc(p.arrival)}${(p.hometown||p.place)?` · from ${esc(p.hometown)||"—"}, wants ${esc(p.place)||"—"}${p.photo?" 📷":""}`:""}</span></li>`
+            : `<li class="dim">${esc(p.name)} — not coming</li>`).join("")}</ul>
+          ${f.message?`<div class="msg">“${esc(f.message)}”</div>`:""}
+        </div>`).join("") || `<p class="dim">None yet.</p>`;
+
+      app.innerHTML = `
+        <h1>RSVP Control</h1>
+        <p class="muted">Carolina &amp; Bruno · 19 June 2027</p>
+        <div class="bar">
+          <span class="pill ${d.open?"open":"closed"}">${d.open?"Site open":"Site closed"}</span>
+          <span class="spacer"></span>
+          ${d.open
+            ? `<button onclick="toggle(false)">Close RSVPs</button>`
+            : `<button onclick="toggle(true)">Reopen RSVPs</button>`}
+          <button class="ghost" onclick="load()">Refresh</button>
+        </div>
+        <div class="tiles">
+          <div class="tile big"><div class="n">${d.guests_confirmed}</div><div class="l">Guests confirmed</div></div>
+          <div class="tile"><div class="n">${d.replied}/${d.total}</div><div class="l">Families replied</div></div>
+          <div class="tile"><div class="n">${d.pending.length}</div><div class="l">Not replied</div></div>
+          <div class="tile"><div class="n">${d.declined.length}</div><div class="l">Declined</div></div>
+        </div>
+
+        <h2>Coming <span class="c">· ${d.coming.length} families, ${d.guests_confirmed} guests</span></h2>
+        ${coming}
+
+        <h2>Not replied yet <span class="c">· ${d.pending.length} · ~${d.awaited} seats</span></h2>
+        <div class="chips">${d.pending.map(p=>`<span class="chip">${esc(p.name)} <span class="p">(${esc(p.party)})</span></span>`).join("") || '<span class="dim">Everyone replied 🎉</span>'}</div>
+
+        <h2>Declined <span class="c">· ${d.declined.length}</span></h2>
+        <div class="chips">${d.declined.map(n=>`<span class="chip">${esc(n)}</span>`).join("") || '<span class="dim">None.</span>'}</div>
+      `;
+    }
+
+    async function load(){
+      if(!KEY) return gate();
+      try{
+        const res = await fetch(`${API}/admin-data?admin=${encodeURIComponent(KEY)}`,{cache:"no-store"});
+        if(res.status===403) return gate("Wrong key.");
+        render(await res.json());
+      }catch(e){ document.getElementById("app").innerHTML =
+        `<div class="gate"><h1>RSVP Control</h1><p class="err">Can't reach the server. Is serve_local.py running?</p></div>`; }
+    }
+    load();
+  </script>
+</body>
+</html>

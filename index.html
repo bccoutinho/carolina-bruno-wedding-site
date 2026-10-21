@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Carolina &amp; Bruno · 19 June 2027</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Great+Vibes&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="mode-first">
+
+  <div class="progress"><span id="bar"></span></div>
+
+  <main id="wizard">
+
+    <div id="closedBanner" class="closed" hidden>
+      RSVPs are now <strong>closed</strong> — thank you so much! If you need to change
+      anything, please email us at <a href="mailto:bruno.c.coutinho@gmail.com">bruno.c.coutinho@gmail.com</a>.
+    </div>
+
+    <!-- ============ WELCOME / INVITE ============ -->
+    <section class="step active" data-step="welcome">
+      <div class="monogram">C <span>·</span> B</div>
+      <p class="eyebrow" id="familyName">You're invited</p>
+      <h1 class="names">Carolina &amp; Bruno</h1>
+      <p class="lead" id="welcomeLead">We would love to celebrate our marriage with you.</p>
+      <div class="rule"><span></span>&#9670;<span></span></div>
+      <p class="date">Saturday &middot; 19&nbsp;June&nbsp;2027 &middot; 12:00</p>
+      <p class="venue">Pousada Castelo de Alvito &middot; Alentejo, Portugal</p>
+      <p class="welcome-note">The ceremony begins at <strong>12:00</strong> on <strong>19&nbsp;June</strong> — and you're warmly welcome to arrive from <strong>18&nbsp;June</strong>.</p>
+      <div class="actions"><button class="primary" id="startBtn">Open our invitation</button></div>
+    </section>
+
+    <!-- ============ VENUE / TRAVEL / STAY ============ -->
+    <section class="step" data-step="place">
+      <h2>Pousada Castelo de Alvito</h2>
+      <p class="sub">A 15th-century castle in the Baixo Alentejo — about 150&nbsp;km south of Lisbon.</p>
+      <img class="castle-hero" src="assets/img/castle-1.jpg" alt="Pousada Castelo de Alvito — the castle">
+
+      <h3 class="group">Getting there</h3>
+      <div class="cards">
+        <div class="card"><h4>By car</h4><p>~1h30 from Lisbon (~150&nbsp;km). Parking in and around the village.</p></div>
+        <div class="card"><h4>By train</h4><p>Metro to Lisboa&ndash;Oriente, then CP to Alvito station — ~2h20. The station is a short ride from the castle.</p></div>
+        <div class="card"><h4>Flying in</h4><p>Fly to Lisbon (LIS), then drive or train down.</p></div>
+      </div>
+      <h3 class="group">Where to stay</h3>
+      <div class="cards">
+        <div class="card"><h4>The castle</h4><p>Rooms inside the Pousada. <!-- TODO: booking / who --></p></div>
+        <div class="card"><h4>Alvito village</h4><p>Guesthouses &amp; restaurants, a short walk away.</p></div>
+        <div class="card"><h4>Nearby</h4><p>Quinta do Paral (~15&nbsp;min); Beja or Évora (~25&ndash;40&nbsp;min).</p></div>
+      </div>
+      <div class="actions first"><button class="ghost" data-back>Back</button><button class="primary" data-next>Next</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ WILL YOU COME? ============ -->
+    <section class="step" data-step="rsvp">
+      <h2>Will you join us?</h2>
+      <p class="sub">Kindly reply by <strong>30 November 2026</strong>.</p>
+      <div class="choices">
+        <button class="choice" data-attending="yes"><span class="big">Joyfully, yes</span><span>We'll be there to celebrate</span></button>
+        <button class="choice" data-attending="no"><span class="big">Sadly, no</span><span>We can't make it this time</span></button>
+      </div>
+      <div class="actions first"><button class="ghost" data-back>Back</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ WHO'S COMING ============ -->
+    <section class="step" data-step="attendees">
+      <h2>Who's coming?</h2>
+      <p class="sub" id="attendeesHint">Tick who can make it, and tell us the day each person arrives.</p>
+      <div id="attendeeList" class="attendees"></div>
+      <button class="add" id="addGuest" type="button">+ Add a guest (plus-one)</button>
+      <div class="actions first"><button class="ghost" data-back>Back</button><button class="primary" data-next>Next</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ ACCOMMODATION ============ -->
+    <section class="step" data-step="stay">
+      <h2>Do you need a room?</h2>
+      <p class="sub">So we can help with rooms at the castle or nearby.</p>
+      <div class="choices column">
+        <button class="choice" data-accom="both">Yes — both nights (18 &amp; 19 June)</button>
+        <button class="choice" data-accom="night19">Yes — the 19th only</button>
+        <button class="choice" data-accom="none">All sorted, thank you</button>
+      </div>
+      <div class="actions first"><button class="ghost" data-back>Back</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ JUST FOR FUN ============ -->
+    <section class="step" data-step="game">
+      <h2>One last thing — just for fun</h2>
+      <p class="sub">A couple of quick questions — for each of you. Entirely optional, and each person can opt out.</p>
+      <div id="gameList"></div>
+      <div class="actions first"><button class="ghost" data-back>Back</button><button class="primary" data-next>Next</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ COMMENTS ============ -->
+    <section class="step" data-step="note">
+      <h2>Any comments?</h2>
+      <p class="sub">Anything you'd like to tell us — questions, well-wishes, anything at all (optional).</p>
+      <label class="field">
+        <span>Your comments</span>
+        <textarea data-field="message" rows="4"></textarea>
+      </label>
+      <div class="actions first"><button class="ghost" data-back>Back</button><button class="primary" data-submit>Save &amp; send</button></div>
+      <div class="actions menu"><button class="ghost" data-menu>Back to menu</button></div>
+    </section>
+
+    <!-- ============ MENU / HUB (return visits only) ============ -->
+    <section class="step" data-step="menu">
+      <p class="eyebrow" id="menuName">Your invitation</p>
+      <h2>Your RSVP</h2>
+      <p class="sub">Open any section to change it, then save.</p>
+      <div class="menu">
+        <button class="menu-item" data-open="rsvp">
+          <span class="mi-title">Will you come?</span>
+          <span class="status" data-status="attending">Not answered yet</span>
+        </button>
+        <button class="menu-item" data-open="place">
+          <span class="mi-title">Venue, travel &amp; where to stay</span>
+          <span class="status">Alvito &middot; how to get there</span>
+        </button>
+        <button class="menu-item" data-open="attendees" data-needyes>
+          <span class="mi-title">Who's coming</span>
+          <span class="status" data-status="attendees">&mdash;</span>
+        </button>
+        <button class="menu-item" data-open="stay" data-needyes>
+          <span class="mi-title">Do you need a room?</span>
+          <span class="status" data-status="accommodation">&mdash;</span>
+        </button>
+        <button class="menu-item" data-open="game" data-needyes>
+          <span class="mi-title">Just for fun</span>
+          <span class="status" data-status="game">&mdash;</span>
+        </button>
+        <button class="menu-item" data-open="note">
+          <span class="mi-title">Comments</span>
+          <span class="status" data-status="message">Optional</span>
+        </button>
+      </div>
+      <div class="actions"><button class="primary" data-submit>Save changes</button></div>
+      <p class="form-status" id="menuStatus" role="status"></p>
+    </section>
+
+    <!-- ============ DONE ============ -->
+    <section class="step" data-step="done">
+      <div class="monogram">C <span>·</span> B</div>
+      <h2 id="doneTitle">Thank you!</h2>
+      <p class="lead" id="doneMsg">Your reply is saved. You can change it anytime with your link.</p>
+      <p class="date">See you on 19&nbsp;June&nbsp;2027 &middot; 12:00</p>
+      <div class="actions"><button class="ghost" data-open="menu">View / edit my RSVP</button></div>
+    </section>
+
+    <p class="form-status" id="formStatus" role="status"></p>
+
+  </main>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
