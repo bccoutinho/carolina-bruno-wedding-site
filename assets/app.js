@@ -11,10 +11,27 @@
  * The "just for fun" game is answered per attending person.
  */
 
-// On localhost, talk to serve_local.py (writes a real CSV). In production, set this
-// to the deployed Apps Script web-app URL (apps-script/README.md).
+// On localhost, talk to serve_local.py (writes a real CSV). In production, POST to
+// the Apps Script web app and read back via JSONP (browsers block cross-origin GET
+// reads of Apps Script). Paste the deployed /exec URL into EXEC below.
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const ENDPOINT = LOCAL ? "/rsvp" : "";   // TODO: paste Apps Script /exec URL for production
+const EXEC = "";   // <-- production Apps Script /exec URL (see apps-script/README.md)
+const ENDPOINT = LOCAL ? "/rsvp" : EXEC;   // where RSVP POSTs go
+
+// JSONP GET to Apps Script (bypasses CORS); resolves the returned JSON.
+function jsonp(params) {
+  return new Promise((resolve, reject) => {
+    if (!EXEC) return reject(new Error("no exec"));
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    const done = (fn, arg) => { clearTimeout(t); delete window[cb]; s.remove(); fn(arg); };
+    const t = setTimeout(() => done(reject, new Error("timeout")), 8000);
+    window[cb] = (data) => done(resolve, data);
+    s.onerror = () => done(reject, new Error("jsonp"));
+    s.src = EXEC + "?" + new URLSearchParams({ ...params, callback: cb }).toString();
+    document.body.appendChild(s);
+  });
+}
 
 const ARRIVAL = ["18 June", "19 June", "Earlier", "Not sure"];
 const ACCOM_LABEL = { both: "Both nights", night19: "19th only", none: "All sorted" };
@@ -113,10 +130,15 @@ async function personalize() {
 }
 
 async function loadExisting() {
-  if (!ENDPOINT) return false;
   try {
-    const res = await fetch(`${ENDPOINT}?token=${encodeURIComponent(state.token)}`, { cache: "no-store" });
-    const data = await res.json();
+    let data;
+    if (LOCAL) {
+      if (!ENDPOINT) return false;
+      data = await (await fetch(`${ENDPOINT}?token=${encodeURIComponent(state.token)}`, { cache: "no-store" })).json();
+    } else {
+      if (!EXEC) return false;
+      data = await jsonp({ token: state.token });
+    }
     if (!data || !data.found) return false;
     state.attending = data.attending || "";
     state.accommodation = data.accommodation || "";
@@ -260,10 +282,15 @@ function status(cls, msg) {
 }
 
 async function checkOpen() {
-  if (!ENDPOINT) return true;
   try {
-    const res = await fetch(`${ENDPOINT}?status=1`, { cache: "no-store" });
-    const d = await res.json();
+    let d;
+    if (LOCAL) {
+      if (!ENDPOINT) return true;
+      d = await (await fetch(`${ENDPOINT}?status=1`, { cache: "no-store" })).json();
+    } else {
+      if (!EXEC) return true;
+      d = await jsonp({ status: 1 });
+    }
     return d.open !== false;                 // only closed when explicitly false
   } catch (_) { return true; }               // never lock guests out on a glitch
 }

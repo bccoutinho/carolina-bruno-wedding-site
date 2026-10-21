@@ -54,8 +54,40 @@
 
   <script>
     const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
-    const API = LOCAL ? "" : "";  // TODO: Apps Script /exec base for production
+    const EXEC = "";  // <-- production Apps Script /exec URL (same as app.js EXEC)
     const KEY = new URLSearchParams(location.search).get("admin") || "";
+    function jsonp(params){
+      return new Promise((resolve,reject)=>{
+        if(!EXEC) return reject(new Error("no exec"));
+        const cb="cb_"+Math.random().toString(36).slice(2);
+        const s=document.createElement("script");
+        const done=(fn,a)=>{clearTimeout(t);delete window[cb];s.remove();fn(a);};
+        const t=setTimeout(()=>done(reject,new Error("timeout")),8000);
+        window[cb]=d=>done(resolve,d);
+        s.onerror=()=>done(reject,new Error("jsonp"));
+        s.src=EXEC+"?"+new URLSearchParams(Object.assign({},params,{callback:cb})).toString();
+        document.body.appendChild(s);
+      });
+    }
+    function computeDashboard(roster, replies, open){
+      const by={}; (replies||[]).forEach(r=>{by[r.token]=r;});
+      const jp=v=>{try{return JSON.parse(v||"[]")}catch(e){return[]}};
+      const coming=[],declined=[],pending=[]; let confirmed=0;
+      roster.slice().sort((a,b)=>(a.name||"").toLowerCase().localeCompare((b.name||"").toLowerCase())).forEach(f=>{
+        const r=by[f.token];
+        if(!r){ pending.push({name:f.name,party:f.party}); return; }
+        if((r.attending||"")==="yes"){
+          const ppl=jp(r.attendees_json), gm={}; jp(r.game_json).forEach(g=>gm[g.name]=g);
+          const people=ppl.map(p=>({name:p.name,arrival:p.arrival,coming:p.coming,
+            hometown:(gm[p.name]||{}).hometown||"", place:(gm[p.name]||{}).game_place||"", photo:!!(gm[p.name]||{}).photo_url}));
+          const c=ppl.filter(p=>p.coming).length; confirmed+=c;
+          coming.push({name:f.name,count:c,room:r.accommodation||"",message:r.message||"",people});
+        } else declined.push(f.name);
+      });
+      return {open:open!==false,total:roster.length,replied:coming.length+declined.length,
+        guests_confirmed:confirmed,awaited:pending.reduce((a,p)=>a+(+p.party||0),0),coming,declined,pending};
+    }
+    function errBox(m){ document.getElementById("app").innerHTML=`<div class="gate"><h1>RSVP Control</h1><p class="err">${m}</p></div>`; }
     const ROOM = {both:"both nights",night19:"the 19th only",none:"all sorted","":"—"};
     const el = (h) => { const d=document.createElement("div"); d.innerHTML=h; return d.firstElementChild; };
     const esc = (s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -72,7 +104,10 @@
       if(k) location.search = "?admin="+encodeURIComponent(k); };
 
     async function toggle(open){
-      await fetch(`${API}/control?admin=${encodeURIComponent(KEY)}&open=${open?1:0}`,{cache:"no-store"});
+      try{
+        if(LOCAL) await fetch(`/control?admin=${encodeURIComponent(KEY)}&open=${open?1:0}`,{cache:"no-store"});
+        else await jsonp({admin:KEY, open:open?1:0});
+      }catch(e){}
       load();
     }
     window.toggle = toggle;
@@ -121,11 +156,20 @@
     async function load(){
       if(!KEY) return gate();
       try{
-        const res = await fetch(`${API}/admin-data?admin=${encodeURIComponent(KEY)}`,{cache:"no-store"});
-        if(res.status===403) return gate("Wrong key.");
-        render(await res.json());
-      }catch(e){ document.getElementById("app").innerHTML =
-        `<div class="gate"><h1>RSVP Control</h1><p class="err">Can't reach the server. Is serve_local.py running?</p></div>`; }
+        let d;
+        if(LOCAL){
+          const res = await fetch(`/admin-data?admin=${encodeURIComponent(KEY)}`,{cache:"no-store"});
+          if(res.status===403) return gate("Wrong key.");
+          d = await res.json();
+        } else {
+          if(!EXEC) return errBox("Backend not connected yet — deploy Apps Script and set EXEC.");
+          const roster = await (await fetch("data/roster.json",{cache:"no-store"})).json();
+          const resp = await jsonp({admin:KEY, all:1});
+          if(!resp || resp.replies===undefined) return gate("Wrong key.");
+          d = computeDashboard(roster, resp.replies, resp.open);
+        }
+        render(d);
+      }catch(e){ errBox(LOCAL ? "Can't reach the server. Is serve_local.py running?" : "Can't reach the backend."); }
     }
     load();
   </script>
