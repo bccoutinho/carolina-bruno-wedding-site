@@ -87,8 +87,9 @@ function goBack() {
 function renderMenu() {
   const set = (name, text) => { const el = $(`[data-status="${name}"]`); if (el) el.textContent = text; };
   set("attending", { yes: "Yes, joyfully", no: "Sadly, no" }[state.attending] || "Not answered yet");
-  const coming = attendees().filter((p) => p.coming).length;
-  set("attendees", coming ? `${coming} coming` : "—");
+  const comingList = attendees().filter((p) => p.coming);
+  const kids = comingList.filter((p) => p.child).length;
+  set("attendees", comingList.length ? `${comingList.length} coming${kids ? ` (${kids} kid${kids > 1 ? "s" : ""})` : ""}` : "—");
   set("accommodation", ACCOM_LABEL[state.accommodation] || "—");
   const anyGame = Object.values(state.game).some((g) => g && (g.game_place || g.hometown || g.photo || g.photo_url));
   set("game", anyGame ? "Added" : "—");
@@ -158,7 +159,7 @@ function setField(name, value) { const el = $(`[data-field="${name}"]`); if (el 
 
 /* ---------- attendee rows ---------- */
 function attendeeRow(person) {
-  const { name = "", coming = true, arrival = "18 June", isExtra = false } = person || {};
+  const { name = "", coming = true, arrival = "18 June", child = false, isExtra = false } = person || {};
   const row = document.createElement("div");
   row.className = "attendee" + (coming ? "" : " declined");
   const opts = ARRIVAL.map((d) => `<option${d === arrival ? " selected" : ""}>${d}</option>`).join("");
@@ -166,6 +167,7 @@ function attendeeRow(person) {
     `<label class="coming" title="Coming?"><input type="checkbox"${coming ? " checked" : ""}></label>` +
     `<input type="text" class="name" placeholder="${isExtra ? "Guest (plus-one)" : "Full name"}" value="${esc(name)}">` +
     `<select class="arrive" aria-label="Arrival day"${coming ? "" : " disabled"}>${opts}</select>` +
+    `<label class="kid" title="Is this a child?"><input type="checkbox" class="kidck"${child ? " checked" : ""}> kid</label>` +
     `<button type="button" class="x" aria-label="Remove">&times;</button>`;
   const chk = row.querySelector(".coming input");
   chk.addEventListener("change", () => {
@@ -187,7 +189,8 @@ function attendees() {
   return $$("#attendeeList .attendee").map((r) => {
     const name = r.querySelector(".name").value.trim();
     if (!name) return null;
-    return { name, coming: r.querySelector(".coming input").checked, arrival: r.querySelector(".arrive").value };
+    return { name, coming: r.querySelector(".coming input").checked, arrival: r.querySelector(".arrive").value,
+             child: r.querySelector(".kidck").checked };
   }).filter(Boolean);
 }
 
@@ -310,7 +313,7 @@ async function submit() {
     status("err", "Add at least one guest who's coming (in “Who's coming”).");
     return;
   }
-  const summary = people.map((p) => (p.coming ? `${p.name} (${p.arrival})` : `${p.name} (not coming)`)).join("; ");
+  const summary = people.map((p) => (p.coming ? `${p.name} (${p.arrival}${p.child ? ", child" : ""})` : `${p.name} (not coming)`)).join("; ");
 
   const payload = {
     submitted_at: new Date().toISOString(),

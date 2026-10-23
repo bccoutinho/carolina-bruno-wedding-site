@@ -83,6 +83,9 @@ h3.group{font-family:var(--sans);text-transform:uppercase;letter-spacing:.2em;fo
 .attendee .x{flex:0 0 auto;width:40px;height:44px;background:none;border:1px solid var(--line);border-radius:5px;
   color:var(--grey);font-size:20px;cursor:pointer;padding:0}
 .attendee .x:hover{border-color:#9a3b3b;color:#9a3b3b}
+.attendee .kid{flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--grey);cursor:pointer;white-space:nowrap}
+.attendee .kid input{width:15px;height:15px;accent-color:var(--gold);cursor:pointer}
 .attendee.declined .name,.attendee.declined .arrive{opacity:.45;text-decoration:line-through}
 @media(max-width:460px){
   .attendee{flex-wrap:wrap}

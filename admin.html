@@ -78,10 +78,11 @@
         if(!r){ pending.push({name:f.name,party:f.party}); return; }
         if((r.attending||"")==="yes"){
           const ppl=jp(r.attendees_json), gm={}; jp(r.game_json).forEach(g=>gm[g.name]=g);
-          const people=ppl.map(p=>({name:p.name,arrival:p.arrival,coming:p.coming,
+          const people=ppl.map(p=>({name:p.name,arrival:p.arrival,coming:p.coming,child:!!p.child,
             hometown:(gm[p.name]||{}).hometown||"", place:(gm[p.name]||{}).game_place||"", photo:!!(gm[p.name]||{}).photo_url}));
           const c=ppl.filter(p=>p.coming).length; confirmed+=c;
-          coming.push({name:f.name,count:c,room:r.accommodation||"",message:r.message||"",people});
+          const k=ppl.filter(p=>p.coming&&p.child).length;
+          coming.push({name:f.name,count:c,kids:k,room:r.accommodation||"",message:r.message||"",people});
         } else declined.push(f.name);
       });
       return {open:open!==false,total:roster.length,replied:coming.length+declined.length,
@@ -129,10 +130,10 @@
       const app = document.getElementById("app");
       const coming = d.coming.map(f=>`
         <div class="fam"><div class="hd">
-          <span class="name">${esc(f.name)} <span class="dim">· ${f.count} coming</span></span>
+          <span class="name">${esc(f.name)} <span class="dim">· ${f.count} coming${f.kids?` · ${f.kids} 👶`:""}</span></span>
           <span class="room">room: ${ROOM[f.room]||esc(f.room)||"—"}</span></div>
           <ul>${f.people.map(p=>p.coming
-            ? `<li>${esc(p.name)} <span class="g">— ${esc(p.arrival)}${(p.hometown||p.place)?` · from ${esc(p.hometown)||"—"}, wants ${esc(p.place)||"—"}${p.photo?" 📷":""}`:""}</span></li>`
+            ? `<li>${esc(p.name)}${p.child?" 👶":""} <span class="g">— ${esc(p.arrival)}${(p.hometown||p.place)?` · from ${esc(p.hometown)||"—"}, wants ${esc(p.place)||"—"}${p.photo?" 📷":""}`:""}</span></li>`
             : `<li class="dim">${esc(p.name)} — not coming</li>`).join("")}</ul>
           ${f.message?`<div class="msg">“${esc(f.message)}”</div>`:""}
         </div>`).join("") || `<p class="dim">None yet.</p>`;
