@@ -357,6 +357,7 @@ async function submit() {
       body: JSON.stringify(payload),
     });
     if (state.token) localStorage.setItem(lsKey(), "1");
+    $$("[data-submit]").forEach((b) => (b.disabled = false));  // re-enable so edit→save works in-session
     status("", "");
     $("#doneMsg").textContent = state.attending === "no"
       ? "Thank you for letting us know. Change it anytime with your link."
