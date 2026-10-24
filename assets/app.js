@@ -89,10 +89,10 @@ function renderMenu() {
   set("attending", { yes: "Yes, joyfully", no: "Sadly, no" }[state.attending] || "Not answered yet");
   const comingList = attendees().filter((p) => p.coming);
   const kids = comingList.filter((p) => p.child).length;
-  set("attendees", comingList.length ? `${comingList.length} coming${kids ? ` (${kids} kid${kids > 1 ? "s" : ""})` : ""}` : "—");
-  set("accommodation", ACCOM_LABEL[state.accommodation] || "—");
-  const anyGame = Object.values(state.game).some((g) => g && (g.game_place || g.hometown || g.photo || g.photo_url));
-  set("game", anyGame ? "Added" : "—");
+  set("attendees", comingList.length ? `${comingList.length} coming${kids ? ` (${kids} kid${kids > 1 ? "s" : ""})` : ""}` : "Not set yet");
+  set("accommodation", ACCOM_LABEL[state.accommodation] || "Not set yet");
+  const anyGame = Object.values(state.game).some((g) => g && (g.game_place || g.hometown || g.song || g.photo || g.photo_url));
+  set("game", anyGame ? "Added" : "Not set yet");
   set("message", collectFields().message ? "Written" : "Optional");
   const no = state.attending === "no";
   $$("[data-needyes]").forEach((b) => { b.classList.toggle("disabled", no); b.disabled = no; });
@@ -112,21 +112,29 @@ async function personalize() {
     state.id = g.id;
     state.party = Math.max(1, g.party || 1);
     state.members = Array.isArray(g.members) ? g.members : [];
-    $("#familyName").textContent = g.name;
+    $("#familyName").textContent = `Dear ${g.name},`;
     $("#menuName").textContent = g.name;
-    $("#welcomeLead").textContent = `Dear ${g.name}, we would love to celebrate our marriage with you.`;
-    if (state.party > 1) {
-      $("#attendeesHint").textContent =
-        `We've saved up to ${state.party} seats for you — tick who's coming and when each person arrives.`;
-    }
+    $("#welcomeLead").textContent = `We invite you to celebrate our marriage.`;
+    // Single invitees get a plus-one button; families get a "did we miss someone?" note instead.
+    // Driven by the explicit `category` from guests.csv; falls back to party size if unset.
+    const single = g.category ? g.category === "single"
+                              : (state.party <= 1 && state.members.length <= 1);
+    const addBtn = $("#addGuest"), missNote = $("#missNote");
+    if (addBtn) addBtn.hidden = !single;
+    if (missNote) missNote.hidden = single;
     // &reset=1 clears this family's saved state → opens fresh (first-visit)
     const reset = params.get("reset") === "1";
     if (reset) localStorage.removeItem(lsKey());
-    const replied = reset ? false : await loadExisting();
-    // return/menu mode: after a real reply, or forced with &edit=1 (preview/testing)
-    if (!reset && (replied || localStorage.getItem(lsKey()) || params.get("edit") === "1")) {
-      setMode("return"); buildAttendees();
-    }
+    // Fast path: if this device has already replied (localStorage flag) or &edit=1,
+    // jump straight to the edit menu right away — don't wait on the backend.
+    const flagged = !reset && (localStorage.getItem(lsKey()) || params.get("edit") === "1");
+    if (flagged) { setMode("return"); buildAttendees(); renderMenu(); show("menu"); }
+    // Read the saved reply in the background to fill in the edit fields.
+    if (!reset) loadExisting().then((replied) => {
+      if (!replied) return;
+      if (!flagged) { setMode("return"); show("menu"); }
+      buildAttendees(); renderMenu();
+    });
   } catch (_) { /* unknown / offline → generic page */ }
 }
 
@@ -148,7 +156,7 @@ async function loadExisting() {
     if (data.game_json) {
       try {
         JSON.parse(data.game_json).forEach((e) => {
-          state.game[e.name] = { game_place: e.game_place, hometown: e.hometown, photo_url: e.photo_url, skip: !!e.opted_out };
+          state.game[e.name] = { game_place: e.game_place, hometown: e.hometown, song: e.song, photo_url: e.photo_url, skip: !!e.opted_out };
         });
       } catch (_) {}
     }
@@ -177,13 +185,20 @@ function attendeeRow(person) {
   row.querySelector(".x").addEventListener("click", () => row.remove());
   return row;
 }
+// A member can be a plain name string (legacy) OR {name, kid} (from the member
+// rosters). A blank name becomes an empty, editable row; kid slots pre-tick "kid".
+function memberToPerson(m) {
+  if (m && typeof m === "object") return { name: m.name || "", child: !!m.kid };
+  return { name: m || "" };
+}
 function buildAttendees() {
   const list = $("#attendeeList");
   if (list.childElementCount) return;
   const saved = state.savedAttendees;
   if (saved && saved.length) { saved.forEach((p) => list.appendChild(attendeeRow(p))); return; }
-  const rows = Math.max(state.party, state.members.length, 1);
-  for (let i = 0; i < rows; i++) list.appendChild(attendeeRow({ name: state.members[i] || "" }));
+  const members = Array.isArray(state.members) ? state.members : [];
+  const rows = Math.max(state.party, members.length, 1);
+  for (let i = 0; i < rows; i++) list.appendChild(attendeeRow(memberToPerson(members[i])));
 }
 function attendees() {
   return $$("#attendeeList .attendee").map((r) => {
@@ -216,20 +231,24 @@ function buildGame() {
           `<input type="text" class="g-place" value="${esc(g.game_place || "")}" placeholder="e.g. Kyoto, Japan"></label>` +
         `<label class="field"><span>Your hometown</span>` +
           `<input type="text" class="g-home" value="${esc(g.hometown || "")}" placeholder="Town, country"></label>` +
-        `<label class="field"><span>The nicest photo of your hometown</span>` +
+        `<label class="field"><span>A song from your home country we should play</span>` +
+          `<input type="text" class="g-song" value="${esc(g.song || "")}" placeholder="Song and artist"></label>` +
+        `<label class="field"><span>A nice photo of your hometown</span>` +
           `<input type="file" class="g-photo" accept="image/*">` +
-          `<small>Please upload a <strong>high-resolution</strong> photo — the sharper, the better.</small>` +
+          `<small>Please upload a <strong>high-resolution</strong> photo. The sharper, the better.</small>` +
           `<img class="g-prev" alt=""${img ? ` src="${esc(img)}"` : " hidden"}></label>` +
       `</div>`;
     const fields = block.querySelector(".g-fields");
     const place = block.querySelector(".g-place");
     const home = block.querySelector(".g-home");
+    const song = block.querySelector(".g-song");
     const prev = block.querySelector(".g-prev");
     block.querySelector(".g-skip").addEventListener("change", (e) => {
       g.skip = e.target.checked; fields.hidden = g.skip;
     });
     place.addEventListener("input", () => { g.game_place = place.value.trim(); });
     home.addEventListener("input", () => { g.hometown = home.value.trim(); });
+    song.addEventListener("input", () => { g.song = song.value.trim(); });
     block.querySelector(".g-photo").addEventListener("change", (e) => {
       if (!e.target.files[0]) return;
       resizePhoto(e.target.files[0], (res) => {
@@ -244,8 +263,8 @@ function buildGame() {
 function collectGame() {
   return attendees().filter((p) => p.coming).map((p) => {
     const g = state.game[p.name] || {};
-    if (g.skip) return { name: p.name, game_place: "", hometown: "", opted_out: true };
-    const e = { name: p.name, game_place: g.game_place || "", hometown: g.hometown || "" };
+    if (g.skip) return { name: p.name, game_place: "", hometown: "", song: "", opted_out: true };
+    const e = { name: p.name, game_place: g.game_place || "", hometown: g.hometown || "", song: g.song || "" };
     if (g.photo) { e.photo_b64 = g.photo.b64; e.photo_type = g.photo.type; e.photo_name = g.photo.name; }
     else if (g.photo_url) { e.photo_url = g.photo_url; }       // carry forward on edit
     return e;
@@ -303,7 +322,7 @@ function applyClosed() {
 }
 
 async function submit() {
-  if (!state.open) { status("err", "RSVPs are closed — please email us for changes."); return; }
+  if (!state.open) { status("err", "RSVPs are closed. Please email us for changes."); return; }
   const fields = collectFields();
   if (!state.attending) { status("err", "Please answer “Will you come?” first."); return; }
 
@@ -340,15 +359,15 @@ async function submit() {
     if (state.token) localStorage.setItem(lsKey(), "1");
     status("", "");
     $("#doneMsg").textContent = state.attending === "no"
-      ? "We'll miss you — thank you for letting us know. You can change this anytime with your link."
-      : "Your reply is saved. You can change it anytime with your link.";
+      ? "Thank you for letting us know. Change it anytime with your link."
+      : "Your reply is saved. Change it anytime with your link.";
     setMode("return");
     show("done");
   } catch (_) {
     $$("[data-submit]").forEach((b) => (b.disabled = false));
     status("err", ENDPOINT
-      ? "Something went wrong — please try again, or email us."
-      : "RSVP isn't connected yet — please check back soon.");
+      ? "Something went wrong. Please try again, or email us."
+      : "RSVP isn't connected yet. Please check back soon.");
   }
 }
 

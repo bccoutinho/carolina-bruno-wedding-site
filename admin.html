@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex">
   <title>RSVP Control — Carolina &amp; Bruno</title>
   <style>
-    :root{--ivory:#fdfcf6;--ink:#1f1d1a;--soft:#46423b;--grey:#857f75;--gold:#997a40;
-      --gold-soft:#c7b07a;--line:#e6ddc8;--green:#3a7d44;--red:#9a3b3b;
+    :root{--ivory:#efe7d6;--ink:#2b3324;--soft:#4e5a43;--grey:#6f6a59;--rasp:#bc3a58;
+      --line:#e2d7bf;--green:#3f5a32;--red:#9a3b3b;
       --serif:Georgia,"Times New Roman",serif;--sans:"Helvetica Neue",Arial,sans-serif;}
     *{box-sizing:border-box}
     body{margin:0;background:var(--ivory);color:var(--ink);font-family:var(--sans);line-height:1.5;padding:28px 18px 60px}
@@ -17,11 +17,11 @@
     .bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:18px 0 24px;
       padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:8px}
     .pill{font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;border-radius:999px}
-    .pill.open{background:#e7f1e9;color:var(--green)}
+    .pill.open{background:#e9f0e3;color:var(--green)}
     .pill.closed{background:#f6e7e7;color:var(--red)}
     button{font-family:var(--sans);font-size:13px;letter-spacing:.04em;border-radius:6px;padding:9px 16px;
-      cursor:pointer;border:1px solid var(--gold);background:var(--gold);color:#fff}
-    button.ghost{background:none;color:var(--gold)}
+      cursor:pointer;border:1px solid var(--rasp);background:var(--rasp);color:#fff}
+    button.ghost{background:none;color:var(--rasp)}
     button:disabled{opacity:.45;cursor:default}
     .spacer{flex:1}
     .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:26px}
@@ -39,7 +39,7 @@
     .fam ul{margin:8px 0 0;padding-left:18px}
     .fam li{font-size:14px;color:var(--soft);margin:2px 0}
     .fam li .g{color:var(--grey);font-size:12.5px}
-    .fam .msg{margin-top:7px;color:var(--gold);font-style:italic;font-size:14px}
+    .fam .msg{margin-top:7px;color:var(--rasp);font-style:italic;font-size:14px}
     .chips{display:flex;flex-wrap:wrap;gap:7px}
     .chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px}
     .chip .p{color:var(--grey)}
@@ -126,6 +126,18 @@
     }
     window.toggle = toggle;
 
+    async function resetAll(){
+      if(!confirm("Delete ALL saved RSVP replies? This is for testing and cannot be undone.")) return;
+      try{
+        if(LOCAL) await fetch(`/control?admin=${encodeURIComponent(KEY)}&reset=all`,{cache:"no-store"});
+        else await jsonp({admin:KEY, reset:"all"});
+      }catch(e){}
+      // also clear this browser's remembered "already replied" flags (same origin as the guest site)
+      try{ Object.keys(localStorage).filter(k=>k.startsWith("cb-")).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      load();
+    }
+    window.resetAll = resetAll;
+
     function render(d){
       const app = document.getElementById("app");
       const coming = d.coming.map(f=>`
@@ -149,6 +161,7 @@
             : `<button onclick="toggle(true)">Reopen RSVPs</button>`}
           <button class="ghost" onclick="downloadCSV()">⬇ CSV</button>
           <button class="ghost" onclick="load()">Refresh</button>
+          <button class="ghost" onclick="resetAll()" style="border-color:var(--red);color:var(--red)">↺ Reset all (test)</button>
         </div>
         <div class="tiles">
           <div class="tile big"><div class="n">${d.guests_confirmed}</div><div class="l">Guests confirmed</div></div>
