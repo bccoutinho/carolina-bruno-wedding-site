@@ -1,5 +1,8 @@
 # Carolina & Bruno — wedding website & RSVP
 
+> **Open handoff (25 Oct 2026): read `HANDOFF.md`** — the live backend still runs an old
+> copy of `Code.gs`; it explains how to publish the right one.
+
 **Pousada Castelo de Alvito** (Largo do Castelo, 7920-999 Alvito, Beja), **Saturday
 19 June 2027, 12:00**; guests welcome from 18 June. This repo is the guest website
 (GitHub Pages) **and** its backend code. It is **public** — never commit guest data,
