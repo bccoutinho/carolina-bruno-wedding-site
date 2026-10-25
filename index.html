@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Great+Vibes&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=3">
+  <link rel="stylesheet" href="assets/style.css?v=5">
 </head>
 <body class="mode-first">
 
@@ -29,7 +29,7 @@
       <p class="lead" id="welcomeLead">We invite you to celebrate our marriage.</p>
       <div class="rule"><span></span>&#9670;<span></span></div>
       <p class="date">Saturday &middot; 19&nbsp;June&nbsp;2027 &middot; 12:00</p>
-      <p class="venue">Pousada Castelo de Alvito &middot; Alentejo, Portugal</p>
+      <p class="venue">Pousada Castelo de Alvito &middot; Alvito, Beja &middot; Alentejo, Portugal</p>
       <p class="welcome-note">Guests are welcome from 18 June. Open our invitation for travel, where to stay, the schedule, and to RSVP.</p>
       <p class="welcome-note reply-by">We kindly ask you to reply by <strong>November&nbsp;2026</strong>.</p>
       <div class="actions"><button class="primary" id="startBtn">Open our invitation</button></div>
@@ -40,6 +40,9 @@
       <h2>Pousada Castelo de Alvito</h2>
       <p class="sub">A 15th-century castle in the Baixo Alentejo, about 150&nbsp;km south of Lisbon. Guests are welcome starting 18 June.</p>
       <img class="castle-hero" src="assets/img/castle-1.jpg" alt="Pousada Castelo de Alvito, the castle">
+      <p class="address">Pousada Castelo de Alvito<br>Largo do Castelo, 7920-999 Alvito (Beja), Portugal<br>
+        <a href="https://www.google.com/maps/search/?api=1&amp;query=Pousada+Castelo+de+Alvito%2C+7920-999+Alvito%2C+Portugal" target="_blank" rel="noopener">Open in Google Maps</a></p>
+      <p class="address-note">In the Alentejo, about 1h30 south-east of Lisbon. Not the Alvito neighbourhood in Lisbon!</p>
 
       <h3 class="group">Getting there</h3>
       <div class="cards">
@@ -73,6 +76,7 @@
       <h2>Who's coming?</h2>
       <p class="sub" id="attendeesHint">Tick who's coming and when each person arrives.</p>
       <div id="attendeeList" class="attendees"></div>
+      <p class="form-status err" id="attendeesStatus" role="status"></p>
       <button class="add" id="addGuest" type="button">+ Add your plus-one</button>
       <p class="add-note" id="missNote" hidden>Did we miss someone? Let us know in the comments.</p>
       <div class="actions first"><button class="ghost" data-back>Back</button><button class="primary" data-next>Next</button></div>
@@ -159,6 +163,6 @@
 
   </main>
 
-  <script src="assets/app.js?v=3"></script>
+  <script src="assets/app.js?v=5"></script>
 </body>
 </html>

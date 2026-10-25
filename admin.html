@@ -53,7 +53,7 @@
   <div class="wrap" id="app"><p class="muted">Loading…</p></div>
 
   <script>
-    const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
+    const LOCAL = new URLSearchParams(location.search).get("backend") === "local";   // default: the real backend
     const EXEC = "https://script.google.com/macros/s/AKfycbx91TBWRt5X7t2GPPvAJP9aR-RaUfJI3Jns3XESoxtd7d5J3rbWdgxrwqeIo0Qo8kSYUg/exec";
     const KEY = new URLSearchParams(location.search).get("admin") || "";
     function jsonp(params){
@@ -192,11 +192,10 @@
           RAW = d.replies || [];
         } else {
           if(!EXEC) return errBox("Backend not connected yet — deploy Apps Script and set EXEC.");
-          const roster = await (await fetch("data/roster.json",{cache:"no-store"})).json();
           const resp = await jsonp({admin:KEY, all:1});
           if(!resp || resp.replies===undefined) return gate("Wrong key.");
           RAW = resp.replies || [];
-          d = computeDashboard(roster, resp.replies, resp.open);
+          d = computeDashboard(resp.roster || [], resp.replies, resp.open);   // roster = live invitations in the sheet
         }
         render(d);
       }catch(e){ errBox(LOCAL ? "Can't reach the server. Is serve_local.py running?" : "Can't reach the backend."); }

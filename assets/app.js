@@ -4,17 +4,18 @@
  * Return visit → a menu/hub to edit any single section (unlocked once they've
  *                replied, detected via the backend or a local flag).
  *
- * The personal link (?i=<token>) is the "login": it greets the family and, once
- * the backend is live, loads their saved answers for editing. "Save" upserts the
- * whole RSVP to a Google Apps Script web app (one row per family, overwritten on
- * re-submit), which also stores each person's hometown photo in Drive.
+ * The personal link (?i=<token>) is the "login": the backend looks the code up in
+ * the Master Guest List sheet and returns the family (names, seats) plus any saved
+ * answers for editing. "Save" sends the whole RSVP to the Google Apps Script web
+ * app, which logs it in the sheet and stores each person's hometown photo in Drive.
  * The "just for fun" game is answered per attending person.
  */
 
-// On localhost, talk to serve_local.py (writes a real CSV). In production, POST to
-// the Apps Script web app and read back via JSONP (browsers block cross-origin GET
-// reads of Apps Script). Paste the deployed /exec URL into EXEC below.
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
+// POST replies to the Apps Script web app and read back via JSONP (browsers block
+// cross-origin GET reads of Apps Script). That's true locally too — previewing on
+// localhost talks to the real backend, so use a test link. (?backend=local switches to
+// the old serve_local.py dev server, if you have it.)
+const LOCAL = new URLSearchParams(location.search).get("backend") === "local";
 const EXEC = "https://script.google.com/macros/s/AKfycbx91TBWRt5X7t2GPPvAJP9aR-RaUfJI3Jns3XESoxtd7d5J3rbWdgxrwqeIo0Qo8kSYUg/exec";
 const ENDPOINT = LOCAL ? "/rsvp" : EXEC;   // where RSVP POSTs go
 
@@ -77,6 +78,7 @@ function goNext() {
   const f = firstFlow();
   const i = f.indexOf(history[history.length - 1]);
   if (i < 0) return;
+  if (f[i] === "attendees" && !checkAttendees()) return;
   if (i >= f.length - 1) { submit(); return; }
   history.push(f[i + 1]); show(f[i + 1]);
 }
@@ -99,15 +101,22 @@ function renderMenu() {
 }
 
 /* ---------- personalization + login (read-back) ---------- */
+// One backend call answers both "who is this link?" and "what did they reply?".
+async function lookup(token) {
+  try {
+    if (LOCAL) return await (await fetch(`${ENDPOINT}?token=${encodeURIComponent(token)}`, { cache: "no-store" })).json();
+    return await jsonp({ token });
+  } catch (_) { return null; }
+}
 async function personalize() {
   const params = new URLSearchParams(location.search);
   const token = params.get("i");
   if (!token || !/^[a-z2-7]+$/.test(token)) return;
   state.token = token;
   try {
-    const res = await fetch(`data/g/${token}.json`, { cache: "no-store" });
-    if (!res.ok) return;
-    const g = await res.json();
+    const data = await lookup(token);
+    const g = data && data.household;
+    if (!g) return;
     state.household = g.name;
     state.id = g.id;
     state.party = Math.max(1, g.party || 1);
@@ -116,7 +125,7 @@ async function personalize() {
     $("#menuName").textContent = g.name;
     $("#welcomeLead").textContent = `We invite you to celebrate our marriage.`;
     // Single invitees get a plus-one button; families get a "did we miss someone?" note instead.
-    // Driven by the explicit `category` from guests.csv; falls back to party size if unset.
+    // Driven by the household's Type in the sheet; falls back to party size if unset.
     const single = g.category ? g.category === "single"
                               : (state.party <= 1 && state.members.length <= 1);
     const addBtn = $("#addGuest"), missNote = $("#missNote");
@@ -124,71 +133,66 @@ async function personalize() {
     if (missNote) missNote.hidden = single;
     // &reset=1 clears this family's saved state → opens fresh (first-visit)
     const reset = params.get("reset") === "1";
-    if (reset) localStorage.removeItem(lsKey());
-    // Fast path: if this device has already replied (localStorage flag) or &edit=1,
-    // jump straight to the edit menu right away — don't wait on the backend.
-    const flagged = !reset && (localStorage.getItem(lsKey()) || params.get("edit") === "1");
-    if (flagged) { setMode("return"); buildAttendees(); renderMenu(); show("menu"); }
-    // Read the saved reply in the background to fill in the edit fields.
-    if (!reset) loadExisting().then((replied) => {
-      if (!replied) return;
-      if (!flagged) { setMode("return"); show("menu"); }
-      buildAttendees(); renderMenu();
-    });
+    if (reset) { localStorage.removeItem(lsKey()); return; }
+    // Return visit: this device already replied (localStorage flag), the backend has
+    // their reply, or &edit=1 → straight to the edit menu, with the saved answers filled in.
+    const replied = applyReply(data);
+    if (replied || localStorage.getItem(lsKey()) || params.get("edit") === "1") {
+      setMode("return"); buildAttendees(); renderMenu(); show("menu");
+    }
   } catch (_) { /* unknown / offline → generic page */ }
 }
 
-async function loadExisting() {
-  try {
-    let data;
-    if (LOCAL) {
-      if (!ENDPOINT) return false;
-      data = await (await fetch(`${ENDPOINT}?token=${encodeURIComponent(state.token)}`, { cache: "no-store" })).json();
-    } else {
-      if (!EXEC) return false;
-      data = await jsonp({ token: state.token });
-    }
-    if (!data || !data.found) return false;
-    state.attending = data.attending || "";
-    state.accommodation = data.accommodation || "";
-    setField("message", data.message);
-    if (data.attendees_json) { try { state.savedAttendees = JSON.parse(data.attendees_json); } catch (_) {} }
-    if (data.game_json) {
-      try {
-        JSON.parse(data.game_json).forEach((e) => {
-          state.game[e.name] = { game_place: e.game_place, hometown: e.hometown, song: e.song, photo_url: e.photo_url, skip: !!e.opted_out };
-        });
-      } catch (_) {}
-    }
-    return true;
-  } catch (_) { return false; }
+function applyReply(data) {
+  if (!data || !data.found) return false;
+  state.attending = data.attending || "";
+  state.accommodation = data.accommodation || "";
+  setField("message", data.message);
+  if (data.attendees_json) { try { state.savedAttendees = JSON.parse(data.attendees_json); } catch (_) {} }
+  if (data.game_json) {
+    try {
+      JSON.parse(data.game_json).forEach((e) => {
+        state.game[e.name] = { game_place: e.game_place, hometown: e.hometown, song: e.song, photo_url: e.photo_url, skip: !!e.opted_out };
+      });
+    } catch (_) {}
+  }
+  return true;
 }
 function setField(name, value) { const el = $(`[data-field="${name}"]`); if (el && value) el.value = value; }
 
 /* ---------- attendee rows ---------- */
+// Each person invited has a seat (their row in the guest sheet), so names can be
+// corrected but people can't be removed — they're unticked instead. Only plus-ones
+// (no seat) get a remove button.
 function attendeeRow(person) {
-  const { name = "", coming = true, arrival = "18 June", child = false, isExtra = false } = person || {};
+  const { name = "", coming = true, arrival = "18 June", child = false, diet = "", seat = "", isExtra = false } = person || {};
   const row = document.createElement("div");
   row.className = "attendee" + (coming ? "" : " declined");
+  if (seat) row.dataset.seat = seat;
   const opts = ARRIVAL.map((d) => `<option${d === arrival ? " selected" : ""}>${d}</option>`).join("");
   row.innerHTML =
     `<label class="coming" title="Coming?"><input type="checkbox"${coming ? " checked" : ""}></label>` +
-    `<input type="text" class="name" placeholder="${isExtra ? "Guest (plus-one)" : "Full name"}" value="${esc(name)}">` +
+    `<input type="text" class="name" placeholder="${isExtra || !seat ? "Guest (plus-one)" : "Full name"}" value="${esc(name)}">` +
     `<select class="arrive" aria-label="Arrival day"${coming ? "" : " disabled"}>${opts}</select>` +
     `<label class="kid" title="Is this a child?"><input type="checkbox" class="kidck"${child ? " checked" : ""}> kid</label>` +
-    `<button type="button" class="x" aria-label="Remove">&times;</button>`;
+    (seat ? "" : `<button type="button" class="x" aria-label="Remove">&times;</button>`) +
+    `<input type="text" class="diet" placeholder="Allergies or dietary needs (optional)" value="${esc(diet)}"${coming ? "" : " disabled"}>`;
   const chk = row.querySelector(".coming input");
   chk.addEventListener("change", () => {
     row.classList.toggle("declined", !chk.checked);
     row.querySelector(".arrive").disabled = !chk.checked;
+    row.querySelector(".diet").disabled = !chk.checked;
+    row.querySelector(".name").classList.remove("missing");
   });
-  row.querySelector(".x").addEventListener("click", () => row.remove());
+  row.querySelector(".name").addEventListener("input", (e) => e.target.classList.remove("missing"));
+  const x = row.querySelector(".x");
+  if (x) x.addEventListener("click", () => row.remove());
   return row;
 }
-// A member can be a plain name string (legacy) OR {name, kid} (from the member
-// rosters). A blank name becomes an empty, editable row; kid slots pre-tick "kid".
+// A member can be a plain name string (legacy) OR {name, kid, seat} (from the guest
+// sheet). A blank name becomes an empty, editable row; kid slots pre-tick "kid".
 function memberToPerson(m) {
-  if (m && typeof m === "object") return { name: m.name || "", child: !!m.kid };
+  if (m && typeof m === "object") return { name: m.name || "", child: !!m.kid, seat: m.seat || "" };
   return { name: m || "" };
 }
 function buildAttendees() {
@@ -200,13 +204,28 @@ function buildAttendees() {
   const rows = Math.max(state.party, members.length, 1);
   for (let i = 0; i < rows; i++) list.appendChild(attendeeRow(memberToPerson(members[i])));
 }
+// Everyone with a name, plus unnamed seats (sent as not coming, so the sheet knows).
 function attendees() {
   return $$("#attendeeList .attendee").map((r) => {
     const name = r.querySelector(".name").value.trim();
-    if (!name) return null;
-    return { name, coming: r.querySelector(".coming input").checked, arrival: r.querySelector(".arrive").value,
-             child: r.querySelector(".kidck").checked };
+    const seat = r.dataset.seat || "";
+    if (!name && !seat) return null;
+    const coming = !!name && r.querySelector(".coming input").checked;
+    const p = { name, coming, arrival: r.querySelector(".arrive").value, child: r.querySelector(".kidck").checked,
+                diet: coming ? r.querySelector(".diet").value.trim() : "" };
+    if (seat) p.seat = seat;
+    return p;
   }).filter(Boolean);
+}
+// Ticked as coming but no name → flag it (returns true when everything's fine).
+function checkAttendees() {
+  const missing = $$("#attendeeList .attendee").filter((r) =>
+    r.querySelector(".coming input").checked && !r.querySelector(".name").value.trim());
+  missing.forEach((r) => r.querySelector(".name").classList.add("missing"));
+  const msg = $("#attendeesStatus");
+  if (msg) msg.textContent = missing.length
+    ? "Please add a name for everyone coming, or untick anyone who isn't." : "";
+  return !missing.length;
 }
 
 /* ---------- game (per attending person) ---------- */
@@ -326,13 +345,18 @@ async function submit() {
   const fields = collectFields();
   if (!state.attending) { status("err", "Please answer “Will you come?” first."); return; }
 
+  if (state.attending === "yes" && $("#attendeeList").childElementCount && !checkAttendees()) {
+    status("err", "Please add a name for everyone coming (in “Who's coming”).");
+    return;
+  }
   const people = state.attending === "yes" ? attendees() : [];
   const coming = people.filter((p) => p.coming);
   if (state.attending === "yes" && coming.length === 0) {
     status("err", "Add at least one guest who's coming (in “Who's coming”).");
     return;
   }
-  const summary = people.map((p) => (p.coming ? `${p.name} (${p.arrival}${p.child ? ", child" : ""})` : `${p.name} (not coming)`)).join("; ");
+  const summary = people.filter((p) => p.name)
+    .map((p) => (p.coming ? `${p.name} (${p.arrival}${p.child ? ", child" : ""})` : `${p.name} (not coming)`)).join("; ");
 
   const payload = {
     submitted_at: new Date().toISOString(),
