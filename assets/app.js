@@ -16,7 +16,7 @@
 // localhost talks to the real backend, so use a test link. (?backend=local switches to
 // the old serve_local.py dev server, if you have it.)
 const LOCAL = new URLSearchParams(location.search).get("backend") === "local";
-const EXEC = "https://script.google.com/macros/s/AKfycbx91TBWRt5X7t2GPPvAJP9aR-RaUfJI3Jns3XESoxtd7d5J3rbWdgxrwqeIo0Qo8kSYUg/exec";
+const EXEC = "https://script.google.com/macros/s/AKfycbxSCJj0KO2Y97PqmmN4tTd7hBpO4053NNCC_Q3_Erls7Rtk_l0N6fGNQeYHSPYGYwm3/exec";
 const ENDPOINT = LOCAL ? "/rsvp" : EXEC;   // where RSVP POSTs go
 
 // JSONP GET to Apps Script (bypasses CORS); resolves the returned JSON.
