@@ -1,7 +1,10 @@
 # Carolina & Bruno — wedding website & RSVP
 
-> **Open handoff (25 Oct 2026): read `HANDOFF.md`** — the live backend still runs an old
-> copy of `Code.gs`; it explains how to publish the right one.
+> **Backend change waiting to be published (1 Nov 2026):** `apps-script/Code.gs` now also
+> sends each live invitation's kid seats and single/family type, so the control page's
+> "Guests (max)" box can show "up to N kids · + up to N plus-ones". Until it's published
+> the box just says "confirmed + every open seat". To publish: steps 2 and 6 of "Publishing
+> a backend change" below (paste the code, Manage deployments → pencil → New version).
 
 **Pousada Castelo de Alvito** (Largo do Castelo, 7920-999 Alvito, Beja), **Saturday
 19 June 2027, 12:00**; guests welcome from 18 June. This repo is the guest website

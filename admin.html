@@ -29,6 +29,7 @@
     .tile .n{font-family:var(--serif);font-size:30px;line-height:1}
     .tile .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);margin-top:6px}
     .tile.big .n{color:var(--green)}
+    .tile .s{font-size:12px;color:var(--grey);margin-top:4px}
     h2{font-family:var(--serif);font-weight:500;font-size:19px;margin:26px 0 10px;
       border-bottom:1px solid var(--line);padding-bottom:6px}
     h2 .c{color:var(--grey);font-size:14px;font-family:var(--sans)}
@@ -73,21 +74,29 @@
     function computeDashboard(roster, replies, open){
       const by={}; (replies||[]).forEach(r=>{by[r.token]=r;});
       const jp=v=>{try{return JSON.parse(v||"[]")}catch(e){return[]}};
-      const coming=[],declined=[],pending=[]; let confirmed=0;
+      const coming=[],declined=[],pending=[]; let confirmed=0, kids=0, roomBoth=0, room19=0;
       roster.slice().sort((a,b)=>(a.name||"").toLowerCase().localeCompare((b.name||"").toLowerCase())).forEach(f=>{
         const r=by[f.token];
-        if(!r){ pending.push({name:f.name,party:f.party}); return; }
+        if(!r){ pending.push({name:f.name,party:f.party,kids:f.kids,single:f.single}); return; }
         if((r.attending||"")==="yes"){
           const ppl=jp(r.attendees_json), gm={}; jp(r.game_json).forEach(g=>gm[g.name]=g);
           const people=ppl.map(p=>({name:p.name,arrival:p.arrival,coming:p.coming,child:!!p.child,
             hometown:(gm[p.name]||{}).hometown||"", place:(gm[p.name]||{}).game_place||"", photo:!!(gm[p.name]||{}).photo_url}));
           const c=ppl.filter(p=>p.coming).length; confirmed+=c;
-          const k=ppl.filter(p=>p.coming&&p.child).length;
+          const k=ppl.filter(p=>p.coming&&p.child).length; kids+=k;
+          if(r.accommodation==="both") roomBoth+=c; else if(r.accommodation==="night19") room19+=c;
           coming.push({name:f.name,count:c,kids:k,room:r.accommodation||"",message:r.message||"",people});
         } else declined.push(f.name);
       });
+      const awaited=pending.reduce((a,p)=>a+(+p.party||0),0);
+      // kids/single per invitation come from newer backends; older ones leave them undefined
+      const hasExtras=pending.length===0||pending.every(p=>p.kids!==undefined);
       return {open:open!==false,total:roster.length,replied:coming.length+declined.length,
-        guests_confirmed:confirmed,awaited:pending.reduce((a,p)=>a+(+p.party||0),0),coming,declined,pending};
+        guests_confirmed:confirmed,kids_confirmed:kids,awaited,
+        max:confirmed+awaited,
+        max_kids:hasExtras?kids+pending.reduce((a,p)=>a+(+p.kids||0),0):null,
+        plus_ones:hasExtras?pending.filter(p=>p.single).length:null,
+        room_both:roomBoth,room_19:room19,coming,declined,pending};
     }
     function errBox(m){ document.getElementById("app").innerHTML=`<div class="gate"><h1>RSVP Control</h1><p class="err">${m}</p></div>`; }
 
@@ -165,10 +174,15 @@
           <button class="ghost" onclick="resetAll()" style="border-color:var(--red);color:var(--red)">↺ Reset all (test)</button>
         </div>
         <div class="tiles">
-          <div class="tile big"><div class="n">${d.guests_confirmed}</div><div class="l">Guests confirmed</div></div>
-          <div class="tile"><div class="n">${d.replied}/${d.total}</div><div class="l">Families replied</div></div>
-          <div class="tile"><div class="n">${d.pending.length}</div><div class="l">Not replied</div></div>
-          <div class="tile"><div class="n">${d.declined.length}</div><div class="l">Declined</div></div>
+          <div class="tile big"><div class="n">${d.guests_confirmed}</div><div class="l">Guests confirmed</div>
+            <div class="s">${d.kids_confirmed} kid${d.kids_confirmed===1?"":"s"}</div></div>
+          <div class="tile"><div class="n">${d.replied}/${d.total}</div><div class="l">Invitations replied</div>
+            <div class="s">${d.declined.length} declined</div></div>
+          <div class="tile"><div class="n">${d.max}</div><div class="l">Guests (max)</div>
+            <div class="s">${d.max_kids===null ? "confirmed + every open seat"
+              : `up to ${d.max_kids} kid${d.max_kids===1?"":"s"} · + up to ${d.plus_ones} plus-one${d.plus_ones===1?"":"s"}`}</div></div>
+          <div class="tile"><div class="n">${d.room_both+d.room_19}</div><div class="l">Need a room</div>
+            <div class="s">both nights ${d.room_both} · 19th only ${d.room_19}</div></div>
         </div>
 
         <h2>Coming <span class="c">· ${d.coming.length} families, ${d.guests_confirmed} guests</span></h2>

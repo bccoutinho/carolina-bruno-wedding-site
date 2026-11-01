@@ -325,13 +325,25 @@ function resetTest_(which) {
   codes.forEach((c) => { const f = fileFor_(folder, c); if (f) f.setTrashed(true); });
 }
 
-// The live invitations (Status = Invite) for the control page's "not replied yet" list.
+// The live invitations (Status = Invite) for the control page: its "not replied yet"
+// list, and the max-guests box (kid seats, and singles who could bring a plus-one).
 function roster_() {
   const inv = tab_('Invitations');
+  const guests = tab_('Guests');
+  const kids = {};
+  guests.rows.forEach((r) => {
+    if (cell_(guests, r, 'Kid') !== true) return;
+    const k = String(cell_(guests, r, 'Invitation')).trim();
+    kids[k] = (kids[k] || 0) + 1;
+  });
   return inv.rows
     .filter((r) => String(cell_(inv, r, 'Status')).trim() === 'Invite' && String(cell_(inv, r, 'Code')).trim())
-    .map((r) => ({ token: String(cell_(inv, r, 'Code')).trim(), name: String(cell_(inv, r, 'Invitation')).trim(),
-                   party: Number(cell_(inv, r, 'Seats')) || 0 }));
+    .map((r) => {
+      const name = String(cell_(inv, r, 'Invitation')).trim();
+      return { token: String(cell_(inv, r, 'Code')).trim(), name: name,
+               party: Number(cell_(inv, r, 'Seats')) || 0, kids: kids[name] || 0,
+               single: String(cell_(inv, r, 'Type')).trim() === 'single' };
+    });
 }
 
 function allReplies_() {
