@@ -62,7 +62,8 @@
         const cb="cb_"+Math.random().toString(36).slice(2);
         const s=document.createElement("script");
         const done=(fn,a)=>{clearTimeout(t);delete window[cb];s.remove();fn(a);};
-        const t=setTimeout(()=>done(reject,new Error("timeout")),8000);
+        // The full dashboard read gets slower as replies pile up (~8 s at 40 families), so wait generously.
+        const t=setTimeout(()=>done(reject,new Error("timeout")),30000);
         window[cb]=d=>done(resolve,d);
         s.onerror=()=>done(reject,new Error("jsonp"));
         s.src=EXEC+"?"+new URLSearchParams(Object.assign({},params,{callback:cb})).toString();
