@@ -77,7 +77,7 @@
       const coming=[],declined=[],pending=[]; let confirmed=0, kids=0, roomBoth=0, room19=0;
       roster.slice().sort((a,b)=>(a.name||"").toLowerCase().localeCompare((b.name||"").toLowerCase())).forEach(f=>{
         const r=by[f.token];
-        if(!r){ pending.push({name:f.name,party:f.party,kids:f.kids,single:f.single}); return; }
+        if(!r){ pending.push({token:f.token,name:f.name,party:f.party,kids:f.kids,single:f.single}); return; }
         if((r.attending||"")==="yes"){
           const ppl=jp(r.attendees_json), gm={}; jp(r.game_json).forEach(g=>gm[g.name]=g);
           const people=ppl.map(p=>({name:p.name,arrival:p.arrival,coming:p.coming,child:!!p.child,
@@ -175,12 +175,12 @@
         </div>
         <div class="tiles">
           <div class="tile big"><div class="n">${d.guests_confirmed}</div><div class="l">Guests confirmed</div>
-            <div class="s">${d.kids_confirmed} kid${d.kids_confirmed===1?"":"s"}</div></div>
+            <div class="s">${d.guests_confirmed-d.kids_confirmed} adults · ${d.kids_confirmed} kid${d.kids_confirmed===1?"":"s"}</div></div>
           <div class="tile"><div class="n">${d.replied}/${d.total}</div><div class="l">Invitations replied</div>
             <div class="s">${d.declined.length} declined</div></div>
           <div class="tile"><div class="n">${d.max}</div><div class="l">Guests (max)</div>
-            <div class="s">${d.max_kids===null ? "confirmed + every open seat"
-              : `up to ${d.max_kids} kid${d.max_kids===1?"":"s"} · + up to ${d.plus_ones} plus-one${d.plus_ones===1?"":"s"}`}</div></div>
+            <div class="s">${d.max_kids===null ? (d.max_note||"confirmed + every open seat")
+              : `${d.max-d.max_kids} adults · ${d.max_kids} kid${d.max_kids===1?"":"s"} · + ${d.plus_ones} plus-one${d.plus_ones===1?"":"s"}`}</div></div>
           <div class="tile"><div class="n">${d.room_both+d.room_19}</div><div class="l">Need a room</div>
             <div class="s">both nights ${d.room_both} · 19th only ${d.room_19}</div></div>
         </div>
@@ -194,6 +194,23 @@
         <h2>Declined <span class="c">· ${d.declined.length}</span></h2>
         <div class="chips">${d.declined.map(n=>`<span class="chip">${esc(n)}</span>`).join("") || '<span class="dim">None.</span>'}</div>
       `;
+    }
+
+    // Older backends only send each open invitation's seat count. The guest-link lookup
+    // (?token=) has the rest — which seats are kids, and whether it's a single who may
+    // bring a plus-one — so ask it for every open invitation, a few at a time.
+    async function fillOpenSeats(d){
+      d.max_note="working out kids & plus-ones…"; render(d);
+      try{
+        const todo=d.pending.slice(), info=[];
+        const worker=async()=>{ while(todo.length){ const p=todo.shift();
+          const r=await jsonp({token:p.token}); if(!r||!r.household) throw new Error("lookup");
+          info.push({kids:r.household.members.filter(m=>m.kid).length, single:r.household.category==="single"}); } };
+        await Promise.all(Array.from({length:10},worker));
+        d.max_kids=d.kids_confirmed+info.reduce((a,x)=>a+x.kids,0);
+        d.plus_ones=info.filter(x=>x.single).length;
+      }catch(e){ d.max_note="couldn't work out kids & plus-ones — try Refresh"; }
+      render(d);
     }
 
     async function load(){
@@ -213,6 +230,7 @@
           d = computeDashboard(resp.roster || [], resp.replies, resp.open);   // roster = live invitations in the sheet
         }
         render(d);
+        if(!LOCAL && d.max_kids===null && d.pending.length) fillOpenSeats(d);
       }catch(e){ errBox(LOCAL ? "Can't reach the server. Is serve_local.py running?" : "Can't reach the backend."); }
     }
     load();
