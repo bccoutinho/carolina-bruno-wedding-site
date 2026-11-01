@@ -35,7 +35,9 @@ is the only access control).
   **only "Invite" links work**), `Type` (single → plus-one button; family → "did we miss
   someone?"), `Sent`, formulas `Seats, Replied, Attending, Coming, Link`, `Notes`.
 - **Guests** — one row per person. Ours: `Invitation` (dropdown), `Name` (blank = not
-  known yet, highlighted), `Kid`, `Likelihood`, `Room` (dropdown from Rooms), `Notes`.
+  known yet, highlighted), `Kid`, `Age` (kids only: age on 19 June 2027 — feeds the
+  Summary's catering 6–11 and extra-bed 10+ counts; guests never see it), `Likelihood`,
+  `Room` (dropdown from Rooms), `Notes`.
   Filled by replies (grey): `Coming, Arrives, Needs room, Seat, Dietary`; `Expected` is
   a formula.
 - **Replies** — one row per submission, appended by the backend; latest per Code wins.
