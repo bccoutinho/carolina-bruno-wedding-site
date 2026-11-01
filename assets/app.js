@@ -20,13 +20,13 @@ const EXEC = "https://script.google.com/macros/s/AKfycbxSCJj0KO2Y97PqmmN4tTd7hBp
 const ENDPOINT = LOCAL ? "/rsvp" : EXEC;   // where RSVP POSTs go
 
 // JSONP GET to Apps Script (bypasses CORS); resolves the returned JSON.
-function jsonp(params) {
+function jsonp(params, ms = 8000) {
   return new Promise((resolve, reject) => {
     if (!EXEC) return reject(new Error("no exec"));
     const cb = "cb_" + Math.random().toString(36).slice(2);
     const s = document.createElement("script");
     const done = (fn, arg) => { clearTimeout(t); delete window[cb]; s.remove(); fn(arg); };
-    const t = setTimeout(() => done(reject, new Error("timeout")), 8000);
+    const t = setTimeout(() => done(reject, new Error("timeout")), ms);
     window[cb] = (data) => done(resolve, data);
     s.onerror = () => done(reject, new Error("jsonp"));
     s.src = EXEC + "?" + new URLSearchParams({ ...params, callback: cb }).toString();
@@ -44,6 +44,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const state = {
   token: "", household: "", id: "", party: 1, members: [], savedAttendees: null,
   attending: "", accommodation: "", game: {}, open: true,
+  loaded: false,                    // the family behind ?i= has been loaded from the backend
 };
 let mode = "first";                 // "first" (linear) | "return" (menu)
 let history = ["welcome"];
@@ -102,21 +103,43 @@ function renderMenu() {
 
 /* ---------- personalization + login (read-back) ---------- */
 // One backend call answers both "who is this link?" and "what did they reply?".
+// Apps Script can be slow to wake up, so wait generously and retry once.
+// Returns null only when the backend couldn't be reached at all.
 async function lookup(token) {
   try {
     if (LOCAL) return await (await fetch(`${ENDPOINT}?token=${encodeURIComponent(token)}`, { cache: "no-store" })).json();
-    return await jsonp({ token });
+    try { return await jsonp({ token }, 15000); } catch (_) { return await jsonp({ token }, 25000); }
   } catch (_) { return null; }
+}
+// Nobody can start (or save) a reply until their family has loaded — otherwise the
+// reply has no seats and lands in the sheet as new rows instead of updating theirs.
+function loadingInvite(on) {
+  const b = $("#startBtn");
+  b.disabled = on;
+  if (on) b.textContent = "Loading your invitation…";
+  else setMode(mode);
+}
+function inviteProblem(reachable) {
+  const b = $("#startBtn");
+  $("#welcomeLead").textContent = reachable
+    ? "This link doesn't seem to be active. If you think that's a mistake, please get in touch with us."
+    : "We couldn't load your invitation just now. Please try again in a moment.";
+  b.disabled = !!reachable;
+  b.textContent = reachable ? "Open our invitation" : "Try again";
+  if (!reachable) b.dataset.retry = "1";
 }
 async function personalize() {
   const params = new URLSearchParams(location.search);
   const token = params.get("i");
   if (!token || !/^[a-z2-7]+$/.test(token)) return;
   state.token = token;
+  loadingInvite(true);
   try {
     const data = await lookup(token);
     const g = data && data.household;
-    if (!g) return;
+    if (!g) { inviteProblem(!!data); return; }
+    state.loaded = true;
+    loadingInvite(false);
     state.household = g.name;
     state.id = g.id;
     state.party = Math.max(1, g.party || 1);
@@ -140,7 +163,7 @@ async function personalize() {
     if (replied || localStorage.getItem(lsKey()) || params.get("edit") === "1") {
       setMode("return"); buildAttendees(); renderMenu(); show("menu");
     }
-  } catch (_) { /* unknown / offline → generic page */ }
+  } catch (_) { inviteProblem(false); }
 }
 
 function applyReply(data) {
@@ -342,6 +365,10 @@ function applyClosed() {
 
 async function submit() {
   if (!state.open) { status("err", "RSVPs are closed. Please email us for changes."); return; }
+  if (state.token && !state.loaded) {
+    status("err", "Your invitation didn't load properly. Please refresh the page and try again.");
+    return;
+  }
   const fields = collectFields();
   if (!state.attending) { status("err", "Please answer “Will you come?” first."); return; }
 
@@ -398,7 +425,9 @@ async function submit() {
 
 /* ---------- wiring ---------- */
 function wire() {
-  $("#startBtn").addEventListener("click", () => {
+  $("#startBtn").addEventListener("click", (e) => {
+    if (e.currentTarget.dataset.retry) { location.reload(); return; }
+    if (e.currentTarget.disabled) return;
     if (mode === "return") { show("menu"); return; }
     history = ["welcome", "place"]; show("place");
   });
